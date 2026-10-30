@@ -32,6 +32,7 @@
 - [Usage](#usage)
 - [Screenshots](#screenshots)
 - [OIDC](#oidc)
+- [AI recommendations on a ChatGPT plan](#ai-recommendations-on-a-chatgpt-plan)
 - [API Documentation](#api-documentation)
 - [Contributing](#contributing)
   - [Contributors](#contributors)
@@ -252,6 +253,19 @@ If `OIDC_ISSUER` is set, Wallos will fetch `/.well-known/openid-configuration` a
 Wallos blocks webhook, SMTP, and OIDC endpoint URLs that resolve to private/link-local/loopback addresses unless the host is present in the Security Settings allowlist. Normally that allowlist is edited through the Admin UI, which requires a manual login before OIDC can be used against an identity provider on a private address (e.g. a self-hosted IdP at `auth.example.com`).
 
 Setting the `SSRF_ALLOWLIST` environment variable overrides the database value entirely (same full-override semantics as the `OIDC_*` variables above), so the allowlist can be provisioned on first boot with no manual UI step. It accepts a comma-separated list of hosts/IPs, optionally with a port (e.g. `SSRF_ALLOWLIST=auth.example.com,192.168.1.100:8123`). While set, the Security Settings field in the Admin UI is shown but disabled.
+
+## AI recommendations on a ChatGPT plan
+
+Each user can connect their own ChatGPT Plus or Pro plan to Wallos through [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source).
+Set `WALLOS_SECRET_KEY` to a random value of at least 32 characters, for example the output of `openssl rand -hex 32`.
+Wallos encrypts the ChatGPT tokens with it, so a database backup alone does not expose them.
+Without it, the ChatGPT plan option stays disabled.
+Changing the key later means every user has to sign in again.
+
+In Settings, under AI Recommendations, select **Continue with ChatGPT** and approve Wallos in the window that opens.
+The browser then lands on an address starting with `http://127.0.0.1:1455` that fails to load; paste that address back into Wallos and select **Connect**.
+**Sign out** revokes the session at OpenAI.
+Usage is managed in [ChatGPT settings](https://chatgpt.com/settings/usage).
 
 ## API Documentation
 
