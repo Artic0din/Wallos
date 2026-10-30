@@ -1018,6 +1018,14 @@ $upcomingPaymentsLimit = normalize_upcoming_payments_limit($settings['upcoming_p
     }
 
     $canTranslateCategories = !empty($aiSettings['enabled']) && !empty($aiSettings['model']) && $lang != 'en';
+
+    require_once 'includes/chatgpt_auth.php';
+    try {
+        $chatgptStatus = chatgpt_auth_status($db, $userId);
+    } catch (ChatGPTAuthException $e) {
+        // unreadable after a key change: show why and keep Sign out, which clears it
+        $chatgptStatus = ['available' => true, 'connected' => true, 'error' => translate($e->getMessage(), $i18n)];
+    }
     ?>
 
     <section class="account-section">
@@ -1380,6 +1388,40 @@ $upcomingPaymentsLimit = normalize_upcoming_payments_limit($settings['upcoming_p
                 <button type="button" id="fetchModelsButton" class="button thin" onclick="fetch_ai_models()">
                     <?= translate('test', $i18n) ?>
                 </button>
+            </div>
+            <div class="form-group" id="chatgpt_plan_group">
+                <label><?= translate('chatgpt_plan', $i18n) ?>:</label>
+                <?php if (!$chatgptStatus['available']): ?>
+                    <p><?= translate('chatgpt_secret_key_missing', $i18n) ?></p>
+                <?php elseif ($chatgptStatus['connected']): ?>
+                    <div class="form-group-inline">
+                        <?php if (isset($chatgptStatus['error'])): ?>
+                            <span><?= htmlspecialchars($chatgptStatus['error']) ?></span>
+                        <?php else: ?>
+                            <span><?= translate('chatgpt_connected_as', $i18n) ?> <?= htmlspecialchars($chatgptStatus['email'] ?? '') ?></span>
+                        <?php endif; ?>
+                        <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer"><?= translate('chatgpt_manage_usage', $i18n) ?></a>
+                        <button type="button" class="button thin secondary-button" onclick="chatgptSignOut()">
+                            <?= translate('chatgpt_sign_out', $i18n) ?>
+                        </button>
+                    </div>
+                <?php else: ?>
+                    <div class="form-group-inline">
+                        <button type="button" class="button thin" onclick="chatgptSignIn()">
+                            <?= translate('chatgpt_continue', $i18n) ?>
+                        </button>
+                    </div>
+                    <div id="chatgpt_callback_group" style="display:none">
+                        <p><?= translate('chatgpt_paste_callback', $i18n) ?></p>
+                        <div class="form-group-inline">
+                            <input type="text" id="chatgpt_callback_url" autocomplete="off"
+                                placeholder="http://127.0.0.1:1455/auth/callback?..." />
+                            <button type="button" class="button thin" onclick="chatgptConnect()">
+                                <?= translate('chatgpt_connect', $i18n) ?>
+                            </button>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="form-group">
                 <label for="ai_model"><?= translate('ai_model', $i18n) ?>:</label>
