@@ -264,6 +264,7 @@ Changing the key later means every user has to sign in again.
 
 In Settings, under AI Recommendations, select **Continue with ChatGPT** and approve Wallos in the window that opens.
 The browser then lands on an address starting with `http://127.0.0.1:1455` that fails to load; paste that address back into Wallos and select **Connect**.
+Then choose **ChatGPT plan** as the provider, select **Test** to list the models your account can use, pick one and save.
 **Sign out** revokes the session at OpenAI.
 Usage is managed in [ChatGPT settings](https://chatgpt.com/settings/usage).
 

@@ -1259,6 +1259,9 @@ function toggleAiInputs() {
   const urlInput = document.getElementById("ai_ollama_host");
   const testButtonUrl = document.getElementById("fetchModelsButton2");
   const testButtonKey = document.getElementById("fetchModelsButton");
+  const chatgptPlanGroup = document.getElementById("chatgpt_plan_group");
+
+  chatgptPlanGroup.style.display = type === "chatgpt-plan" ? "" : "none";
 
   // Reset key visibility
   apiKeyInput.type = "password";
@@ -1270,6 +1273,11 @@ function toggleAiInputs() {
     urlGroup.style.display = "";
     urlInput.placeholder = "http://localhost:11434";
     testButtonUrl.classList.remove("hidden");   // show url-row Test
+  } else if (type === "chatgpt-plan") {
+    apiKeyInput.classList.add("hidden");
+    testButtonKey.classList.remove("hidden");   // lists the account's models
+    urlGroup.style.display = "none";
+    testButtonUrl.classList.add("hidden");
   } else if (type === "openai-compatible") {
     apiKeyInput.classList.remove("hidden");
     testButtonKey.classList.remove("hidden");   // show key-row Test

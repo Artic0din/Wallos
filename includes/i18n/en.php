@@ -339,6 +339,7 @@ $i18n = [
     "chatgpt_unavailable" => "ChatGPT could not be reached or answered unexpectedly.",
     "chatgpt_reconnect" => "The ChatGPT connection is no longer valid. Sign in again.",
     "chatgpt_not_connected" => "Sign in with ChatGPT first.",
+    "chatgpt_usage_limit" => "Your ChatGPT usage limit is reached. Check your usage in ChatGPT settings.",
     "chatgpt_revocation_unconfirmed" => "Signed out here, but ChatGPT did not confirm it. Disconnect Wallos in ChatGPT settings.",
     "ai_recommendations_info" => "AI Recommendations are generated based on your subscriptions and household members.",
     "may_take_time" => "Depending on the provider, model and number of subscriptions, recommendations generation may take some time.",

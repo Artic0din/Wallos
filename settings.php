@@ -1363,6 +1363,7 @@ $upcomingPaymentsLimit = normalize_upcoming_payments_limit($settings['upcoming_p
                 <label for="ai_type"><?= translate('provider', $i18n) ?>:</label>
                 <select id="ai_type" name="ai_type" onchange="toggleAiInputs()">
                     <option value="chatgpt" <?= (isset($aiSettings['type']) && $aiSettings['type'] == 'chatgpt') ? 'selected' : '' ?>>ChatGPT</option>
+                    <option value="chatgpt-plan" <?= (isset($aiSettings['type']) && $aiSettings['type'] == 'chatgpt-plan') ? 'selected' : '' ?>><?= translate('chatgpt_plan', $i18n) ?></option>
                     <option value="gemini" <?= (isset($aiSettings['type']) && $aiSettings['type'] == 'gemini') ? 'selected' : '' ?>>Gemini</option>
                     <option value="openrouter" <?= (isset($aiSettings['type']) && $aiSettings['type'] == 'openrouter') ? 'selected' : '' ?>>OpenRouter</option>
                     <option value="ollama" <?= (isset($aiSettings['type']) && $aiSettings['type'] == 'ollama') ? 'selected' : '' ?>>Local Ollama</option>
@@ -1382,14 +1383,15 @@ $upcomingPaymentsLimit = normalize_upcoming_payments_limit($settings['upcoming_p
             </div>
             <div class="form-group-inline">
                 <input type="password" id="ai_api_key" name="ai_api_key" autocomplete="off"
-                    class="<?= (isset($aiSettings['type']) && $aiSettings['type'] == 'ollama') ? 'hidden' : '' ?>"
+                    class="<?= (isset($aiSettings['type']) && in_array($aiSettings['type'], ['ollama', 'chatgpt-plan'])) ? 'hidden' : '' ?>"
                     placeholder="<?= translate('api_key', $i18n) ?>"
                     value="<?= isset($aiSettings['api_key']) ? htmlspecialchars($aiSettings['api_key']) : '' ?>" />
                 <button type="button" id="fetchModelsButton" class="button thin" onclick="fetch_ai_models()">
                     <?= translate('test', $i18n) ?>
                 </button>
             </div>
-            <div class="form-group" id="chatgpt_plan_group">
+            <div class="form-group" id="chatgpt_plan_group"
+                <?= (!isset($aiSettings['type']) || $aiSettings['type'] != 'chatgpt-plan') ? 'style="display:none"' : '' ?>>
                 <label><?= translate('chatgpt_plan', $i18n) ?>:</label>
                 <?php if (!$chatgptStatus['available']): ?>
                     <p><?= translate('chatgpt_secret_key_missing', $i18n) ?></p>
