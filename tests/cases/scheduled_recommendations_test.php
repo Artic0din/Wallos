@@ -21,6 +21,10 @@ function wallos_test_fake_provider($directory, array $replies)
     file_put_contents($directory . '/router.php', <<<'PHP'
 <?php
 $dir = __DIR__;
+if ($_SERVER['REQUEST_URI'] === '/__ready') {
+    echo file_get_contents($dir . '/ready.token');
+    return;
+}
 file_put_contents($dir . '/requests.log', json_encode([
     'path' => $_SERVER['REQUEST_URI'],
     'body' => json_decode(file_get_contents('php://input'), true),
@@ -31,21 +35,31 @@ header('Content-Type: application/json');
 echo $replies[min($count, count($replies)) - 1];
 PHP);
 
-    $socket = stream_socket_server('tcp://127.0.0.1:0');
-    $port = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
-    fclose($socket);
+    // A port picked here can be taken before the server binds it, so only an
+    // answer carrying this token proves the fake provider is the one listening.
+    $token = bin2hex(random_bytes(8));
+    file_put_contents($directory . '/ready.token', $token);
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        $socket = stream_socket_server('tcp://127.0.0.1:0');
+        $port = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
+        fclose($socket);
 
-    $server = proc_open(
-        [PHP_BINARY, '-S', '127.0.0.1:' . $port, $directory . '/router.php'],
-        [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
-        $pipes
-    );
+        $server = proc_open(
+            [PHP_BINARY, '-S', '127.0.0.1:' . $port, $directory . '/router.php'],
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes
+        );
 
-    for ($i = 0; $i < 50 && !@fsockopen('127.0.0.1', $port); $i++) {
-        usleep(100000);
+        for ($i = 0; $i < 50 && proc_get_status($server)['running']; $i++) {
+            if (@file_get_contents("http://127.0.0.1:$port/__ready") === $token) {
+                return [$server, $port];
+            }
+            usleep(100000);
+        }
+        proc_terminate($server);
     }
 
-    return [$server, $port];
+    throw new RuntimeException('the fake provider did not start');
 }
 
 /**
@@ -145,5 +159,73 @@ wallos_test('a provider error in a scheduled run is reported and stores nothing'
         assert_same(0, $count, 'no recommendation is stored');
     } finally {
         proc_terminate($server);
+    }
+});
+
+wallos_test('a scheduled run unwraps a recommendations object and keeps old ones on an unusable reply', function () {
+    $providerDir = WALLOS_TEST_TMP . '/provider-' . uniqid('', true);
+    mkdir($providerDir, 0700, true);
+    $wrapped = 'Here you go:' . "\n" . json_encode(['recommendations' => [['title' => 'Cancel one', 'description' => 'Two overlap.']]]);
+    [$server, $port] = wallos_test_fake_provider($providerDir, [
+        wallos_test_completion($wrapped),
+        wallos_test_completion('Sorry: {"note": "nothing to suggest"}'),
+    ]);
+
+    try {
+        $root = wallos_test_cron_sandbox("http://127.0.0.1:$port/v1", $port);
+        $first = wallos_test_run_cron($root);
+        $second = wallos_test_run_cron($root);
+
+        assert_same(1, $first['successes'] ?? null, 'the wrapped reply counts as a success');
+        assert_same(0, $second['successes'] ?? null, 'a reply without recommendations does not');
+
+        $db = new SQLite3($root . '/db/wallos.db');
+        $rows = [];
+        $result = $db->query('SELECT title, description, savings FROM ai_recommendations WHERE user_id = 1');
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+        $db->close();
+
+        assert_same([['title' => 'Cancel one', 'description' => 'Two overlap.', 'savings' => '']], $rows,
+            'the unwrapped recommendation is stored, and the unusable reply did not replace it');
+    } finally {
+        proc_terminate($server);
+    }
+});
+
+wallos_test('an administrator opening the job in a browser gets provider text as plain text', function () {
+    $providerDir = WALLOS_TEST_TMP . '/provider-' . uniqid('', true);
+    mkdir($providerDir, 0700, true);
+    [$provider, $port] = wallos_test_fake_provider($providerDir, [json_encode(['error' => ['message' => '<script>alert(1)</script>']])]);
+    $root = wallos_test_cron_sandbox("http://127.0.0.1:$port/v1", $port);
+
+    // The job only answers a browser for the signed-in administrator.
+    mkdir($root . '/sessions', 0700);
+    file_put_contents($root . '/sessions/sess_wallostest', 'loggedin|b:1;userId|i:1;');
+    $socket = stream_socket_server('tcp://127.0.0.1:0');
+    $webPort = (int) substr(strrchr(stream_socket_get_name($socket, false), ':'), 1);
+    fclose($socket);
+    $web = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $root . '/sessions', '-S', '127.0.0.1:' . $webPort, '-t', $root],
+        [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+
+    try {
+        for ($i = 0; $i < 50 && !@fsockopen('127.0.0.1', $webPort); $i++) {
+            usleep(100000);
+        }
+        $body = file_get_contents("http://127.0.0.1:$webPort/endpoints/cronjobs/generaterecommendations.php?run=weekly",
+            false, stream_context_create(['http' => ['header' => 'Cookie: PHPSESSID=wallostest']]));
+        $contentType = '';
+        foreach ($http_response_header as $header) {
+            if (stripos($header, 'Content-Type:') === 0) {
+                $contentType = $header;
+            }
+        }
+
+        assert_contains('<script>', (string) $body, 'the provider text reaches the response');
+        assert_contains('text/plain', $contentType, 'and is served as plain text, not HTML');
+    } finally {
+        proc_terminate($web);
+        proc_terminate($provider);
     }
 });

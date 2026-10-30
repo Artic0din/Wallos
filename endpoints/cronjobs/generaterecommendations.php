@@ -8,6 +8,8 @@ require_once __DIR__ . '/../../includes/ai_client.php';
 if (php_sapi_name() === 'cli') {
     $runType = $argv[1] ?? 'weekly';
 } else {
+    // failures carry provider text; a browser must not render it as HTML
+    header('Content-Type: text/plain; charset=utf-8');
     $runType = $_GET['run'] ?? 'weekly';
 }
 
@@ -181,10 +183,10 @@ PROMPT;
         continue;
     }
 
-    $recommendations = ai_extract_json($aiResult['content']);
+    $recommendations = ai_normalize_recommendations(ai_extract_json($aiResult['content']));
 
-    if (!is_array($recommendations)) {
-        $failures[] = ['user_id' => $tempUserId, 'reason' => 'invalid AI response: ' . json_last_error_msg()];
+    if (empty($recommendations)) {
+        $failures[] = ['user_id' => $tempUserId, 'reason' => 'invalid AI response'];
         continue;
     }
 
